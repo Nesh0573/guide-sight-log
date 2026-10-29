@@ -1,0 +1,77 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gamewatchers Field Log</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><meta name="theme-color" content="#2f5d3a">
+<script src="config.js"></script>
+<style>
+:root{--bg:#f4f1e8;--c:#fff;--t:#222;--g:#2f5d3a;--b:#d8d2c0}
+@media(prefers-color-scheme:dark){:root{--bg:#161a16;--c:#222822;--t:#eee;--g:#6fae7c;--b:#3a443a}}
+*{box-sizing:border-box}body{margin:0;font:16px system-ui,sans-serif;background:var(--bg);color:var(--t)}
+header{background:var(--g);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5;gap:8px}
+header button{background:#fff3;color:#fff;border:0;border-radius:6px;padding:4px 8px}
+main{max-width:640px;margin:auto;padding:10px}.card{background:var(--c);border:1px solid var(--b);border-radius:10px;padding:12px;margin:10px 0}
+label{display:block;font-size:14px;margin:10px 0 0}input,select,textarea{width:100%;font:inherit;padding:8px;margin-top:3px;border:1px solid var(--b);border-radius:6px;background:var(--bg);color:var(--t)}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0}.tabs button,.row button{padding:8px 12px;border:1px solid var(--b);border-radius:8px;background:var(--c);color:var(--t);white-space:nowrap}
+.tabs .on{background:var(--g);color:#fff}.tabs .f{border-color:var(--g)}.row{display:flex;gap:8px;justify-content:space-between;margin-top:12px}
+.go{width:100%;padding:14px;font-size:18px;background:var(--g);color:#fff;border:0;border-radius:10px;margin:8px 0 40px}#bn{background:#ffe9a8;color:#432;padding:8px;margin:8px 0;border-radius:8px;display:none}
+</style></head><body>
+<header><b>🦁 Gamewatchers Field Log</b><span id="st"></span></header>
+<main><div id="bn"></div><div id="app"></div></main>
+<script>
+const $=s=>document.querySelector(s),LS=(k,v)=>v===undefined?JSON.parse(localStorage.getItem(k)||'null'):localStorage.setItem(k,JSON.stringify(v));
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const addDays=(d,n)=>{const x=new Date(d+'T12:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)};
+const newTrip=()=>({id:crypto.randomUUID(),n:1,start:new Date().toISOString().slice(0,10),trip:{},days:[{}]});
+let user=LS('gw_user'),T=LS('gw_draft')||newTrip(),cur=0,busy=0;
+const save=()=>LS('gw_draft',T),outbox=()=>LS('gw_out')||[];
+let lg={step:1,email:''};
+const api=async b=>(await fetch(CONFIG.SCRIPT_URL,{method:'POST',body:JSON.stringify(b)})).json();
+function loginUI(){$('#app').innerHTML=lg.step==1?`<div class="card"><h2>Sign in</h2><p>Enter your email. We will send you a 6-digit code. Internet is needed for this step only.</p><label>Email<input id="em" type="email" value="${esc(lg.email)}" autocomplete="email"></label><button class="go" id="sc">Send code</button></div>`
+ :`<div class="card"><h2>Enter code</h2><p>Sent to ${esc(lg.email)}. Valid for 10 minutes.</p><label>6-digit code<input id="cd" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="go" id="vc">Verify</button><a href="#" id="bk">Use a different email</a></div>`}
+async function sendCode(){const e=$('#em').value.trim().toLowerCase();if(!e)return;lg.email=e;
+ try{const r=await api({action:'sendcode',email:e});if(r.ok){lg.step=2;render()}else alert(r.error)}catch(x){alert('No internet connection. Try again when online.')}}
+async function verifyCode(){try{const r=await api({action:'verify',email:lg.email,code:$('#cd').value.trim()});
+ if(r.ok){user={token:r.token,exp:r.exp,email:lg.email,name:r.name};LS('gw_user',user);lg={step:1,email:''};banner('');render();sync()}else alert(r.error)}catch(x){alert('No internet connection.')}}
+function banner(h){const b=$('#bn');b.innerHTML=h;b.style.display=h?'block':'none'}
+function status(){const n=outbox().length;$('#st').innerHTML=(navigator.onLine?'🟢 Online':'🔴 Offline')+(n?` · ${n} unsent <button id="sy">Sync</button>`:'')}
+function fld(s,i,f,v){const[,l,t,o,m]=f,x=m||{},a=`data-s="${s}" data-i="${i}"`;v=v||'';
+ return `<label>${l}${x.r?' <b style="color:#c33">*</b>':''}${x.h?`<br><small style="opacity:.7">${esc(x.h)}</small>`:''}`+(t=='select'?`<select ${a}><option></option>${(v&&!o.includes(v)?[...o,v]:o).map(y=>`<option${y==v?' selected':''}>${esc(y)}</option>`).join('')}</select>`:
+ t=='area'?`<textarea ${a} rows="2">${esc(v)}</textarea>`:`<input ${a} value="${esc(v)}">`)+`</label>`}
+function render(){
+ if(!user){loginUI();return status()}
+ const d=T.days[cur];d.date=d.date||addDays(T.start,cur);
+ $('#app').innerHTML=`<div class="card"><small>${esc(user.email)} · <a href="#" id="lo">sign out</a></small><h3>Safari details</h3>
+ ${CONFIG.trip.map((f,i)=>fld('trip',i,f,T.trip[f[0]])).join('')}
+ <label>Start date<input type="date" id="sd" value="${T.start}"></label>
+ <label>Number of days<select id="nd">${[...Array(CONFIG.MAX_DAYS)].map((_,i)=>`<option${i+1==T.n?' selected':''}>${i+1}</option>`).join('')}</select></label></div>
+ <div class="tabs">${T.days.slice(0,T.n).map((x,i)=>`<button data-t="${i}" class="${i==cur?'on':''} ${Object.keys(x).length>1?'f':''}">Day ${i+1}</button>`).join('')}</div>
+ <div class="card"><h3>Day ${cur+1}</h3><label>Date<input type="date" id="dd" value="${d.date}"></label>
+ ${CONFIG.day.map((f,i)=>fld('day',i,f,d[f[0]])).join('')}
+ <div class="row"><button data-nav="-1">◀ Prev</button><button data-nav="1">Next ▶</button></div></div>
+ <button class="go" id="sb">Submit safari log</button>`;status()}
+const A=$('#app');
+A.addEventListener('input',e=>{const t=e.target,s=t.dataset.s;
+ if(s)(s=='trip'?T.trip:T.days[cur])[CONFIG[s][t.dataset.i][0]]=t.value;else if(t.id=='dd')T.days[cur].date=t.value;else if(t.id=='sd')T.start=t.value;save()});
+A.addEventListener('change',e=>{const t=e.target;
+ if(t.dataset.s&&t.value=='Other…'){const x=prompt('Please specify:')||'';(t.dataset.s=='trip'?T.trip:T.days[cur])[CONFIG[t.dataset.s][t.dataset.i][0]]=x;save();render()}
+ if(t.id=='nd'){T.n=+t.value;while(T.days.length<T.n)T.days.push({});cur=Math.min(cur,T.n-1);save();render()}
+ if(t.id=='sd'){T.days.forEach(x=>delete x.date);save();render()}});
+document.addEventListener('click',e=>{const t=e.target;
+ if(t.dataset.t){cur=+t.dataset.t;render();scrollTo(0,0)}
+ if(t.dataset.nav){cur=Math.max(0,Math.min(T.n-1,cur+ +t.dataset.nav));render();scrollTo(0,0)}
+ if(t.id=='sb')submit();if(t.id=='sc')sendCode();if(t.id=='vc')verifyCode();if(t.id=='bk'){e.preventDefault();lg.step=1;render()}if(t.id=='sy')sync();
+ if(t.id=='lo'){e.preventDefault();if(!outbox().length||confirm('Unsent logs will stay but you must sign in again to send. Continue?')){LS('gw_user',null);user=null;render()}}});
+function submit(){
+ for(const f of CONFIG.trip)if(f[4]&&f[4].r&&!(T.trip[f[0]]||'').trim())return alert('Required: '+f[1]);
+ for(let i=0;i<T.n;i++)for(const f of CONFIG.day)if(f[4]&&f[4].r&&!(T.days[i][f[0]]||'').trim()){cur=i;render();return alert(`Day ${i+1} — required: ${f[1]}`)}
+ for(let i=0;i<T.n;i++)T.days[i].date=T.days[i].date||addDays(T.start,i);
+ const q=outbox();q.push({...T,days:T.days.slice(0,T.n)});LS('gw_out',q);T=newTrip();cur=0;save();render();
+ alert('Saved on this phone. It will upload automatically when online.');sync()}
+async function sync(){if(busy||!navigator.onLine||!outbox().length||!user)return;
+ if(user.exp<Date.now()+6e4){user=null;LS('gw_user',null);render();banner('Session expired — sign in again to send your logs.');return}
+ busy=1;try{for(const t of outbox()){const r=await(await fetch(CONFIG.SCRIPT_URL,{method:'POST',body:JSON.stringify({token:user.token,trip:t})})).json();
+  if(r.ok){LS('gw_out',outbox().filter(x=>x.id!=t.id));banner('')}
+  else{if(/^auth/.test(r.error)){user=null;LS('gw_user',null);render()}banner(esc(r.error));break}}}catch(e){}
+ busy=0;status()}
+addEventListener('online',()=>{status();sync()});addEventListener('offline',status);setInterval(sync,60000);
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+render();sync();
+</script></body></html>
