@@ -12,8 +12,10 @@ label{display:block;font-size:14px;margin:10px 0 0}input,select,textarea{width:1
 .tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0}.tabs button,.row button{padding:8px 12px;border:1px solid var(--b);border-radius:8px;background:var(--c);color:var(--t);white-space:nowrap}
 .tabs .on{background:var(--g);color:#fff}.tabs .f{border-color:var(--g)}.row{display:flex;gap:8px;justify-content:space-between;margin-top:12px}
 .go{width:100%;padding:14px;font-size:18px;background:var(--g);color:#fff;border:0;border-radius:10px;margin:8px 0 40px}#bn{background:#ffe9a8;color:#432;padding:8px;margin:8px 0;border-radius:8px;display:none}
+body::after{content:"";position:fixed;inset:0;background:url(logo.png) center/75% no-repeat;opacity:.07;pointer-events:none;z-index:3}
+.brand{display:flex;justify-content:center;align-items:center;gap:14px;margin-bottom:6px}.brand img{height:70px;border-radius:8px}
 </style></head><body>
-<header><b>🦁 Gamewatchers Field Log</b><span id="st"></span></header>
+<header><span style="display:flex;align-items:center;gap:8px"><img src="logo.png" alt="Gamewatchers Safaris" style="height:34px"><b>Field Log</b></span><span id="st"></span></header>
 <main><div id="bn"></div><div id="app"></div></main>
 <script>
 const $=s=>document.querySelector(s),LS=(k,v)=>v===undefined?JSON.parse(localStorage.getItem(k)||'null'):localStorage.setItem(k,JSON.stringify(v));
@@ -24,8 +26,8 @@ let user=LS('gw_user'),T=LS('gw_draft')||newTrip(),cur=0,busy=0;
 const save=()=>LS('gw_draft',T),outbox=()=>LS('gw_out')||[];
 let lg={step:1,email:''};
 const api=async b=>(await fetch(CONFIG.SCRIPT_URL,{method:'POST',body:JSON.stringify(b)})).json();
-function loginUI(){$('#app').innerHTML=lg.step==1?`<div class="card"><h2>Sign in</h2><p>Enter your email. We will send you a 6-digit code. Internet is needed for this step only.</p><label>Email<input id="em" type="email" value="${esc(lg.email)}" autocomplete="email"></label><button class="go" id="sc">Send code</button></div>`
- :`<div class="card"><h2>Enter code</h2><p>Sent to ${esc(lg.email)}. Valid for 10 minutes.</p><label>6-digit code<input id="cd" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="go" id="vc">Verify</button><a href="#" id="bk">Use a different email</a></div>`}
+function loginUI(){$('#app').innerHTML=lg.step==1?`<div class="card"><div class="brand"><img src="logo.png" alt="Gamewatchers Safaris"><img src="porini.png" alt="Porini Camps"></div><h2>Sign in</h2><p>Enter your email. We will send you a 6-digit code. Internet is needed for this step only.</p><label>Email<input id="em" type="email" value="${esc(lg.email)}" autocomplete="email"></label><button class="go" id="sc">Send code</button></div>`
+ :`<div class="card"><div class="brand"><img src="logo.png" alt="Gamewatchers Safaris"><img src="porini.png" alt="Porini Camps"></div><h2>Enter code</h2><p>Sent to ${esc(lg.email)}. Valid for 10 minutes.</p><label>6-digit code<input id="cd" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="go" id="vc">Verify</button><a href="#" id="bk">Use a different email</a></div>`}
 async function sendCode(){const e=$('#em').value.trim().toLowerCase();if(!e)return;lg.email=e;
  try{const r=await api({action:'sendcode',email:e});if(r.ok){lg.step=2;render()}else alert(r.error)}catch(x){alert('No internet connection. Try again when online.')}}
 async function verifyCode(){try{const r=await api({action:'verify',email:lg.email,code:$('#cd').value.trim()});
