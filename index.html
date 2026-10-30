@@ -26,10 +26,10 @@ let user=LS('gw_user'),T=LS('gw_draft')||newTrip(),cur=0,busy=0;
 const save=()=>LS('gw_draft',T),outbox=()=>LS('gw_out')||[];
 let lg={step:1,email:''};
 const api=async b=>(await fetch(CONFIG.SCRIPT_URL,{method:'POST',body:JSON.stringify(b)})).json();
-function loginUI(){$('#app').innerHTML=lg.step==1?`<div class="card"><div class="brand"><img src="logo.png" alt="Gamewatchers Safaris"><img src="porini.png" alt="Porini Camps"></div><h2>Sign in</h2><p>Enter your email. We will send you a 6-digit code. Internet is needed for this step only.</p><label>Email<input id="em" type="email" value="${esc(lg.email)}" autocomplete="email"></label><button class="go" id="sc">Send code</button></div>`
+function loginUI(){$('#app').innerHTML=lg.step==1?`<div class="card"><div class="brand"><img src="logo.png" alt="Gamewatchers Safaris"><img src="porini.png" alt="Porini Camps"></div><h2>Sign in</h2><p>Enter your email. The first time, also type your full name. We will send you a 6-digit code. Internet is needed for this step only.</p><label>Email<input id="em" type="email" value="${esc(lg.email)}" autocomplete="email"></label><label>Full name <small style="opacity:.7">(first time only)</small><input id="nm" autocomplete="name" value="${esc(lg.name||'')}"></label>${CONFIG.ASK_TEAM_CODE?'<label>Team code <small style="opacity:.7">(first time only, ask the office)</small><input id="tc"></label>':''}<button class="go" id="sc">Send code</button></div>`
  :`<div class="card"><div class="brand"><img src="logo.png" alt="Gamewatchers Safaris"><img src="porini.png" alt="Porini Camps"></div><h2>Enter code</h2><p>Sent to ${esc(lg.email)}. Valid for 10 minutes.</p><label>6-digit code<input id="cd" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="go" id="vc">Verify</button><a href="#" id="bk">Use a different email</a></div>`}
-async function sendCode(){const e=$('#em').value.trim().toLowerCase();if(!e)return;lg.email=e;
- try{const r=await api({action:'sendcode',email:e});if(r.ok){lg.step=2;render()}else alert(r.error)}catch(x){alert('No internet connection. Try again when online.')}}
+async function sendCode(){const e=$('#em').value.trim().toLowerCase();if(!e)return;lg.email=e;lg.name=$('#nm').value.trim();
+ try{const r=await api({action:'sendcode',email:e,name:lg.name,join:$('#tc')?$('#tc').value.trim():''});if(r.ok){lg.step=2;render()}else alert(r.error)}catch(x){alert('No internet connection. Try again when online.')}}
 async function verifyCode(){try{const r=await api({action:'verify',email:lg.email,code:$('#cd').value.trim()});
  if(r.ok){user={token:r.token,exp:r.exp,email:lg.email,name:r.name};LS('gw_user',user);lg={step:1,email:''};banner('');render();sync()}else alert(r.error)}catch(x){alert('No internet connection.')}}
 function banner(h){const b=$('#bn');b.innerHTML=h;b.style.display=h?'block':'none'}
@@ -39,6 +39,7 @@ function fld(s,i,f,v){const[,l,t,o,m]=f,x=m||{},a=`data-s="${s}" data-i="${i}"`;
  t=='area'?`<textarea ${a} rows="2">${esc(v)}</textarea>`:`<input ${a} value="${esc(v)}">`)+`</label>`}
 function render(){
  if(!user){loginUI();return status()}
+ const gk=CONFIG.trip[0][0];if(!T.trip[gk]&&user.name){T.trip[gk]=user.name;save()}
  const d=T.days[cur];d.date=d.date||addDays(T.start,cur);
  $('#app').innerHTML=`<div class="card"><small>${esc(user.email)} · <a href="#" id="lo">sign out</a></small><h3>Safari details</h3>
  ${CONFIG.trip.map((f,i)=>fld('trip',i,f,T.trip[f[0]])).join('')}
